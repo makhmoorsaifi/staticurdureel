@@ -7,17 +7,15 @@ worked example in the spec:
     Reel 001 -> 10 Aug, 06:00
     Reel 002 -> 10 Aug, 07:00
     ...
-    Reel 016 -> 10 Aug, 21:00
-    Reel 017 -> 11 Aug, 06:00
-    ...
 
-Nothing here is hard-coded -- posting_times, posting_days, reels_per_day,
-and start_date all come from config.py. Only reels currently in
-'validated' or 'hosted' status (i.e. already passed pre-flight checks)
-get a schedule assigned; reels that failed validation are left alone.
+Slot times in config.py (posting_times) are interpreted as IST
+(Asia/Kolkata) wall-clock times -- e.g. "18:00" means 6 PM in India.
+They are converted to UTC before being stored, so scheduled_at in the
+database is always UTC -- consistent with publisher.py's comparisons.
 """
 
-from datetime import datetime, timedelta, time as time_type
+from datetime import datetime, timedelta, time as time_type, timezone
+from zoneinfo import ZoneInfo
 from typing import List
 
 from config import load_config
@@ -27,6 +25,7 @@ from logger import get_logger
 log = get_logger(__name__)
 
 WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+IST = ZoneInfo("Asia/Kolkata")
 
 
 def _parse_time(value: str) -> time_type:
@@ -35,15 +34,13 @@ def _parse_time(value: str) -> time_type:
 
 
 def generate_slots(cfg=None, num_slots_needed: int = 0) -> List[datetime]:
-    """Generates the next `num_slots_needed` datetime slots starting from
-    cfg.start_date, walking forward day by day, using only cfg.posting_days
-    and the first cfg.reels_per_day entries of cfg.posting_times per day."""
+    """Generates the next `num_slots_needed` UTC datetime slots, computed
+    from IST wall-clock posting_times, starting from cfg.start_date."""
     cfg = cfg or load_config()
     times = [_parse_time(t) for t in cfg.posting_times[: cfg.reels_per_day]]
     current_date = datetime.strptime(cfg.start_date, "%Y-%m-%d").date()
 
     slots: List[datetime] = []
-    # safety cap so a config typo (e.g. empty posting_days) can't loop forever
     max_days_to_scan = 365 * 2
     days_scanned = 0
 
@@ -53,7 +50,9 @@ def generate_slots(cfg=None, num_slots_needed: int = 0) -> List[datetime]:
             for t in times:
                 if len(slots) >= num_slots_needed:
                     break
-                slots.append(datetime.combine(current_date, t))
+                # build as IST wall-clock time, then convert to UTC for storage
+                ist_dt = datetime.combine(current_date, t, tzinfo=IST)
+                slots.append(ist_dt.astimezone(timezone.utc))
         current_date += timedelta(days=1)
         days_scanned += 1
 
@@ -66,15 +65,6 @@ def generate_slots(cfg=None, num_slots_needed: int = 0) -> List[datetime]:
 
 
 def assign_schedule(db_path=None, limit=None) -> int:
-    """Pulls reels with status 'validated' (or 'hosted') in insertion order,
-    assigns them the next available slots, and moves them to 'scheduled'.
-
-    Returns the number of reels scheduled. Safe to call repeatedly / after
-    a crash: only touches reels not already scheduled, and always continues
-    from the latest existing scheduled_at rather than restarting from
-    cfg.start_date, so newly-added reels queue up AFTER what's already
-    scheduled instead of colliding with it.
-    """
     cfg = load_config()
     with get_connection(db_path) as conn:
         query = "SELECT * FROM reels WHERE status IN ('validated', 'hosted') ORDER BY id ASC"
@@ -86,23 +76,24 @@ def assign_schedule(db_path=None, limit=None) -> int:
             log.info("No reels awaiting scheduling.")
             return 0
 
-        # Find the latest already-scheduled slot so we don't double-book it.
         last_scheduled = conn.execute(
             "SELECT MAX(scheduled_at) as latest FROM reels WHERE scheduled_at IS NOT NULL"
         ).fetchone()["latest"]
 
         if last_scheduled:
+            last_dt = datetime.fromisoformat(last_scheduled)
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)  # backward-compat for old naive rows
+
             resume_cfg = load_config()
-            resume_from = datetime.fromisoformat(last_scheduled) + timedelta(minutes=1)
-            resume_cfg.start_date = resume_from.strftime("%Y-%m-%d")
+            # convert the UTC resume point to IST just to pick the right calendar date to resume from
+            resume_from_ist = (last_dt + timedelta(minutes=1)).astimezone(IST)
+            resume_cfg.start_date = resume_from_ist.strftime("%Y-%m-%d")
             slots = generate_slots(resume_cfg, num_slots_needed=len(pending) + cfg.reels_per_day)
-            slots = [s for s in slots if s > datetime.fromisoformat(last_scheduled)]
+            slots = [s for s in slots if s > last_dt]
             slots = slots[: len(pending)]
         else:
-            # First-ever schedule: never hand out a slot that's already in
-            # the past (e.g. today's early-morning slots if it's already
-            # afternoon) -- always start from the next upcoming slot.
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             slots = generate_slots(cfg, num_slots_needed=len(pending) + cfg.reels_per_day)
             slots = [s for s in slots if s > now]
             slots = slots[: len(pending)]
@@ -110,7 +101,7 @@ def assign_schedule(db_path=None, limit=None) -> int:
         for reel, slot in zip(pending, slots):
             update_status(conn, reel["id"], status="scheduled",
                            scheduled_at=slot.isoformat())
-            log.info(f"Scheduled reel id={reel['id']} ({reel['filename']}) -> {slot.isoformat()}")
+            log.info(f"Scheduled reel id={reel['id']} ({reel['filename']}) -> {slot.isoformat()} UTC")
 
         return len(pending)
 
