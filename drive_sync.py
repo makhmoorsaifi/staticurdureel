@@ -135,12 +135,16 @@ def sync_from_drive() -> int:
 
     new_count = 0
     for f in all_files:
-        if f["id"] in downloaded_ids:
-            continue
-
         dest_path = os.path.join(cfg.reels_folder, f["name"])
-        log.info(f"Downloading from Drive: {f['name']} ({f.get('size', '?')} bytes)")
 
+        if f["id"] in downloaded_ids and os.path.exists(dest_path):
+            continue
+        # Either never downloaded, OR downloaded before but the local file
+        # is gone now (e.g. a fresh CI checkout wiped the gitignored
+        # reels_incoming/ folder before the reel got published) -- either
+        # way, fetch it again so publisher.py has something to upload.
+
+        log.info(f"Downloading from Drive: {f['name']} ({f.get('size', '?')} bytes)")
         request = service.files().get_media(fileId=f["id"])
         with io.FileIO(dest_path, "wb") as fh:
             downloader = MediaIoBaseDownload(fh, request)
