@@ -29,6 +29,11 @@ jobs:
         run: printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > credentials.json
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      - name: Write Meta access token
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: |
+          python -c "import os; from token_store import write_token; write_token(os.environ['META_ACCESS_TOKEN'], 5184000)"
       - name: Run pipeline (sync -> schedule -> publish)
         env:
           REELS_FOLDER: ${{ github.workspace }}/reels_incoming
