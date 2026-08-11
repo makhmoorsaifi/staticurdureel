@@ -4,7 +4,7 @@ name: Reel Pipeline
 # Each run: pulls new videos from the Drive folder, adds them to the
 # queue, assigns schedule slots, and publishes whichever reel is due.
 # Change the cron below if you change reels_per_day / posting_times.
-"on":
+on:
   schedule:
     - cron: "5 * * * *"
   workflow_dispatch:    # lets you trigger a run manually from the Actions tab
