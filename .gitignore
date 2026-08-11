@@ -17,6 +17,4 @@ reels_incoming/
 # Local secrets and runtime data
 token.json
 user_config.json
-database/*.db
-database/*_state.json
 logs/*.log
