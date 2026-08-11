@@ -1,0 +1,13 @@
+# deploy/token-refresh.timer
+# Copy to /etc/systemd/system/token-refresh.timer
+# Then: sudo systemctl daemon-reload && sudo systemctl enable --now token-refresh.timer
+
+[Unit]
+Description=Run token-refresh check once a day
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

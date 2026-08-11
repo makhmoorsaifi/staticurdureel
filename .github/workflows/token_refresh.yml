@@ -1,0 +1,40 @@
+name: Token Refresh
+
+# Meta's long-lived token lasts ~60 days. This runs daily and only
+# actually calls Meta's API once the token is close to expiring
+# (see token_refresh.py) -- so it's a safe daily no-op most days.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Refresh token if needed
+        env:
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+        run: python token_refresh.py
+
+      - name: Commit refreshed token
+        run: |
+          git config user.name "reel-bot"
+          git config user.email "reel-bot@users.noreply.github.com"
+          git add token.json
+          git diff --cached --quiet || git commit -m "Refresh access token"
+          git pull --rebase --autostash
+          git push

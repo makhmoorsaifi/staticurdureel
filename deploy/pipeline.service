@@ -1,0 +1,15 @@
+# deploy/pipeline.service
+# Copy to /etc/systemd/system/pipeline.service
+# Runs queue_manager.py -> scheduler.py -> publisher.py in sequence.
+# Triggered by pipeline.timer, not run directly.
+
+[Unit]
+Description=Staticurdureel reel pipeline (Drive sync + schedule + publish)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/staticurdureel
+User=staticurdureel
+ExecStart=/usr/bin/python3 /opt/staticurdureel/queue_manager.py
+ExecStart=/usr/bin/python3 /opt/staticurdureel/scheduler.py
+ExecStart=/usr/bin/python3 /opt/staticurdureel/publisher.py

@@ -1,0 +1,63 @@
+name: Reel Pipeline
+
+# Runs every hour -- matches the hourly posting_times slots in config.py.
+# Each run: pulls new videos from the Drive folder, adds them to the
+# queue, assigns schedule slots, and publishes whichever reel is due.
+# Change the cron below if you change reels_per_day / posting_times.
+on:
+  schedule:
+    - cron: "5 * * * *"
+  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
+
+concurrency:
+  group: reel-pipeline
+  cancel-in-progress: false   # never cut off a run that's mid-publish
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write   # needed to commit the updated database back to the repo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write Google Drive service-account credentials
+        run: printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > credentials.json
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Run pipeline (sync -> schedule -> publish)
+        env:
+          REELS_FOLDER: ${{ github.workspace }}/reels_incoming
+          HOSTING_MODE: supabase
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          mkdir -p "$REELS_FOLDER"
+          python queue_manager.py
+          python scheduler.py
+          python publisher.py
+
+      - name: Commit updated state back to the repo
+        run: |
+          rm -f credentials.json
+          git config user.name "reel-bot"
+          git config user.email "reel-bot@users.noreply.github.com"
+          git add database/ logs/
+          git diff --cached --quiet || git commit -m "Automated pipeline run"
+          git pull --rebase --autostash
+          git push

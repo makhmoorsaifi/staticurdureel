@@ -1,0 +1,18 @@
+# deploy/pipeline.timer
+# Copy to /etc/systemd/system/pipeline.timer
+# Then: sudo systemctl daemon-reload && sudo systemctl enable --now pipeline.timer
+#
+# Runs every 15 minutes -- close enough to your hourly posting_times
+# that a reel scheduled for e.g. 09:00 publishes at 09:00-09:15, not
+# hours late. publisher.py only acts on reels whose time has actually
+# arrived, so running it often is harmless (it's a no-op most times).
+
+[Unit]
+Description=Run the staticurdureel pipeline every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target

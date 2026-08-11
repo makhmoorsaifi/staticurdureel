@@ -1,0 +1,17 @@
+# deploy/Caddyfile
+#
+# Replace YOUR-VM-PUBLIC-IP-WITH-DASHES with your actual VM IP, dashes
+# instead of dots. Example: IP 123.45.67.89 -> 123-45-67-89.nip.io
+#
+# nip.io is a free public DNS service: <anything>.nip.io always resolves
+# to the IP embedded in the name -- no domain purchase, no DNS setup.
+# Caddy uses this to automatically get a real Let's Encrypt HTTPS
+# certificate for it. This is what lets Instagram's servers fetch your
+# video over a trusted https:// URL.
+#
+# Copy this file to /etc/caddy/Caddyfile on the VM, then:
+#   sudo systemctl reload caddy
+
+YOUR-VM-PUBLIC-IP-WITH-DASHES.nip.io {
+    reverse_proxy 127.0.0.1:8765
+}

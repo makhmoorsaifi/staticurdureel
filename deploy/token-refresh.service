@@ -1,0 +1,14 @@
+# deploy/token-refresh.service
+# Copy to /etc/systemd/system/token-refresh.service
+
+[Unit]
+Description=Check and refresh the Meta long-lived token if close to expiry
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/staticurdureel
+User=staticurdureel
+Environment=META_APP_ID=YOUR_APP_ID
+Environment=META_APP_SECRET=YOUR_APP_SECRET
+ExecStart=/usr/bin/python3 /opt/staticurdureel/token_refresh.py
+

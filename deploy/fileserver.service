@@ -1,0 +1,18 @@
+# deploy/fileserver.service
+# Copy to /etc/systemd/system/fileserver.service
+# Then: sudo systemctl daemon-reload && sudo systemctl enable --now fileserver
+
+[Unit]
+Description=Staticurdureel persistent reel file server (for direct hosting)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/staticurdureel
+ExecStart=/usr/bin/python3 /opt/staticurdureel/deploy/persistent_file_server.py
+Restart=always
+RestartSec=5
+User=staticurdureel
+
+[Install]
+WantedBy=multi-user.target

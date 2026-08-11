@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+.env
+
+# Google service account key -- injected at runtime from the
+# GOOGLE_SERVICE_ACCOUNT_JSON GitHub Actions secret, never committed.
+credentials.json
+
+# Windows-only local test tool -- not needed on the GitHub Actions runner.
+ngrok.exe
+
+# Videos downloaded from Drive during a run -- live briefly on the runner,
+# get uploaded to Supabase and re-fetched by Instagram from there, then
+# deleted. Never commit actual video binaries to git.
+reels_incoming/
+
+# Local secrets and runtime data
+token.json
+user_config.json
+database/*.db
+database/*_state.json
+logs/*.log
