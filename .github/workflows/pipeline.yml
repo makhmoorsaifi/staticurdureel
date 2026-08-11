@@ -7,7 +7,7 @@ name: Reel Pipeline
 on:
   schedule:
     - cron: "5 * * * *"
-  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
+  workflow_dispatch:    # lets you trigger a run manually from the Actions tab
 
 concurrency:
   group: reel-pipeline
