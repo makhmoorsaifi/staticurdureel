@@ -48,6 +48,8 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           mkdir -p "$REELS_FOLDER"
+	  mkdir -p "database"
+
           python queue_manager.py
           python scheduler.py
           python publisher.py
