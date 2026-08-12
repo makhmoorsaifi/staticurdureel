@@ -112,12 +112,15 @@ def run(force: bool = False, reel_id: int = None) -> int:
         else:
             due = []
             now_iso = datetime.now(timezone.utc).isoformat()
-            row = get_next_due(conn, now_iso)
-            while row:
+            seen_ids = set()
+            while True:
+                row = get_next_due(conn, now_iso)
+                if not row or row["id"] in seen_ids:
+                    break
+                seen_ids.add(row["id"])
                 due.append(row)
                 if cfg.max_reels_this_run and len(due) >= cfg.max_reels_this_run:
                     break
-                row = get_next_due(conn, now_iso)
 
         if not due:
             log.info("No reels due for publishing right now.")
