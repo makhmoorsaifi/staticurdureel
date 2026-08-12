@@ -96,8 +96,7 @@ class ScheduleConfig:
     retry_backoff_base_seconds: int = 30      # exponential: base * 2^attempt
 
     # --- Bulk rollout gates (matches the requested test -> scale process) ---
-    max_reels_this_run: Optional[int] = 1     # start at 1, then 5, then None (unlimited)
-
+    max_reels_this_run: Optional[int] = None   # unlimited     
 
 def _parse_time(value: str) -> time:
     h, m = value.split(":")
