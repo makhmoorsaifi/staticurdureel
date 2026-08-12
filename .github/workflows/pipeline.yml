@@ -50,6 +50,10 @@ jobs:
           python queue_manager.py
           python scheduler.py
           python publisher.py
+      - name: Check token expiry (temporary debug step)
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+        run: python check_token.py
       - name: Commit updated state back to the repo
         run: |
           rm -f credentials.json
